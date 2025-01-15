@@ -50,9 +50,8 @@ def draw_next_shape(shape, surface):
 
 
 def draw_window(surface, grid, score):
-    surface.fill((0, 0, 0))  # coloring the image surface blac
+    surface.fill((0, 0, 0))  # coloring the image surface black
     # surface is an image placed over the play area
-
     # initializing the font
     pygame.font.init()
 
