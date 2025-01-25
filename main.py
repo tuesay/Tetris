@@ -1,43 +1,96 @@
 import pygame
 import random
 
-# Initialize PyGame
+# Инициализация PyGame
 pygame.init()
 
-# Constants
-SCREEN_WIDTH = 900  # Increased width for displaying next shapes and held shape
+# Константы
+SCREEN_WIDTH = 900
 SCREEN_HEIGHT = 600
 GRID_SIZE = 30
-GRID_WIDTH = 10  # Width of the playing field
-GRID_HEIGHT = 20  # Height of the playing field
+GRID_WIDTH = 10
+GRID_HEIGHT = 20
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-GRAY = (100, 100, 100)  # Light gray color for grid lines
-SHADOW_GRAY = (50, 50, 50)  # Dark gray color for shadow
-# Colors for each shape
+GRAY = (100, 100, 100)
+SHADOW_GRAY = (50, 50, 50)
 SHAPE_COLORS = {
-    "I": (0, 255, 0),  # Green
-    "O": (0, 0, 255),  # Blue
-    "T": (255, 0, 0),  # Red
-    "L": (255, 255, 0),  # Yellow
-    "J": (255, 165, 0),  # Orange
-    "S": (0, 255, 255),  # Cyan
-    "Z": (128, 0, 128)  # Purple
+    "I": (0, 255, 0),
+    "O": (0, 0, 255),
+    "T": (255, 0, 0),
+    "L": (255, 255, 0),
+    "J": (255, 165, 0),
+    "S": (0, 255, 255),
+    "Z": (128, 0, 128)
 }
-# Shapes
 SHAPES = {
-    "I": [[1, 1, 1, 1]],  # I
-    "O": [[1, 1], [1, 1]],  # O
-    "T": [[0, 1, 0], [1, 1, 1]],  # T
-    "L": [[0, 0, 1], [1, 1, 1]],  # L
-    "J": [[1, 0, 0], [1, 1, 1]],  # J
-    "S": [[1, 1, 0], [0, 1, 1]],  # S
-    "Z": [[0, 1, 1], [1, 1, 0]]  # Z
+    "I": [[1, 1, 1, 1]],
+    "O": [[1, 1], [1, 1]],
+    "T": [[0, 1, 0], [1, 1, 1]],
+    "L": [[0, 0, 1], [1, 1, 1]],
+    "J": [[1, 0, 0], [1, 1, 1]],
+    "S": [[1, 1, 0], [0, 1, 1]],
+    "Z": [[0, 1, 1], [1, 1, 0]]
 }
-# Create the screen
+
+# Система подсчета очков
+SCORE_TABLE = {
+    1: 100,  # Очки за очистку 1 линии
+    2: 300,  # Очки за очистку 2 линий
+    3: 500,  # Очки за очистку 3 линий
+    4: 800   # Очки за очистку 4 линий (Тетрис)
+}
+
+# Глобальные настройки
+global_settings = {
+    "initial_move_delay_horizontal": 100,
+    "accelerated_move_delay_horizontal": 10,
+    "initial_move_delay_vertical": 150,
+    "accelerated_move_delay_vertical": 50,
+    "acceleration_threshold": 50
+}
+
+# Создание экрана
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Tetris")
 
+# Класс InputBox (для меню настроек)
+class InputBox:
+    def __init__(self, x, y, w, h, text=''):
+        self.rect = pygame.Rect(x, y, w, h)
+        self.color = GRAY
+        self.text = text
+        self.font = pygame.font.Font(None, 36)
+        self.txt_surface = self.font.render(text, True, self.color)
+        self.active = False
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.rect.collidepoint(event.pos):
+                self.active = not self.active
+            else:
+                self.active = False
+            self.color = WHITE if self.active else GRAY
+        if event.type == pygame.KEYDOWN:
+            if self.active:
+                if event.key == pygame.K_RETURN:
+                    print(self.text)  # Для отладки, можно обработать ввод здесь
+                    self.text = ''
+                elif event.key == pygame.K_BACKSPACE:
+                    self.text = self.text[:-1]
+                else:
+                    self.text += event.unicode
+                self.txt_surface = self.font.render(self.text, True, self.color)
+
+    def update(self):
+        width = max(200, self.txt_surface.get_width() + 10)
+        self.rect.w = width
+
+    def draw(self, screen):
+        screen.blit(self.txt_surface, (self.rect.x + 5, self.rect.y + 5))
+        pygame.draw.rect(screen, self.color, self.rect, 2)
+
+# Класс Grid
 class Grid:
     def __init__(self, width, height):
         self.width = width
@@ -69,8 +122,9 @@ class Grid:
         for y, row in enumerate(self.grid):
             for x, cell in enumerate(row):
                 pygame.draw.rect(screen, cell, (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE), 0)
-                pygame.draw.rect(screen, GRAY, (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)  # Light gray borders
+                pygame.draw.rect(screen, GRAY, (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)
 
+# Класс Shape
 class Shape:
     def __init__(self, shape, color):
         self.shape = shape
@@ -87,8 +141,10 @@ class Shape:
                 if cell:
                     screen.blit(surface, ((x + j) * GRID_SIZE, (y + i) * GRID_SIZE))
 
+# Класс TetrisGame
 class TetrisGame:
-    def __init__(self):
+    def __init__(self, initial_move_delay_horizontal=100, accelerated_move_delay_horizontal=10,
+                 initial_move_delay_vertical=150, accelerated_move_delay_vertical=50, acceleration_threshold=50):
         self.clock = pygame.time.Clock()
         self.grid = Grid(GRID_WIDTH, GRID_HEIGHT)
         self.bag = self.generate_bag()
@@ -103,15 +159,17 @@ class TetrisGame:
         self.fall_time = 0
         self.move_time_horizontal = 0
         self.move_time_vertical = 0
-        self.initial_move_delay_horizontal = 100 # Initial horizontal move delay (in milliseconds)
-        self.accelerated_move_delay_horizontal = 10  # Accelerated horizontal move delay (in milliseconds)
-        self.initial_move_delay_vertical = 150  # Initial vertical move delay (in milliseconds)
-        self.accelerated_move_delay_vertical = 50  # Accelerated vertical move delay (in milliseconds)
-        self.acceleration_threshold = 50  # Threshold time for acceleration (in milliseconds)
+        self.initial_move_delay_horizontal = initial_move_delay_horizontal
+        self.accelerated_move_delay_horizontal = accelerated_move_delay_horizontal
+        self.initial_move_delay_vertical = initial_move_delay_vertical
+        self.accelerated_move_delay_vertical = accelerated_move_delay_vertical
+        self.acceleration_threshold = acceleration_threshold
         self.last_time = pygame.time.get_ticks()
+        self.score = 0
+        self.level = 1
+        self.lines_cleared = 0
 
     def generate_bag(self):
-        print("First creation of a bag")
         shapes = list(SHAPES.keys())
         random.shuffle(shapes)
         return shapes
@@ -127,14 +185,13 @@ class TetrisGame:
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                return True  # Return True to quit the entire program
+                return True
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_UP:
                     rotated_shape = self.current_shape.rotate()
                     if self.grid.valid_move(rotated_shape.shape, self.current_x, self.current_y):
                         self.current_shape = rotated_shape
                 if event.key == pygame.K_SPACE:
-                    # Fast drop of the shape
                     while self.grid.valid_move(self.current_shape.shape, self.current_x, self.current_y + 1):
                         self.current_y += 1
                     self.place_current_shape()
@@ -142,27 +199,24 @@ class TetrisGame:
                     self.spawn_new_shape()
                     if not self.grid.valid_move(self.current_shape.shape, self.current_x, self.current_y):
                         self.game_over = True
-                        break  # Break out of the event loop after fast drop
+                        break
                 if event.key == pygame.K_LSHIFT or event.key == pygame.K_RSHIFT:
                     if not self.held_used:
                         if self.held_shape is None:
                             self.held_shape = self.current_shape
-                            self.held_color = self.current_shape.color  # Сохраняем цвет текущей фигуры
+                            self.held_color = self.current_shape.color
                             self.spawn_new_shape()
                         else:
-                            # Обмениваем фигуры и их цвета
                             self.held_shape, self.current_shape = self.current_shape, self.held_shape
                             self.held_color, self.current_shape.color = self.current_shape.color, self.held_color
                         self.current_x = GRID_WIDTH // 2 - len(self.current_shape.shape[0]) // 2
                         self.current_y = 0
-                        self.held_used = True  # Set the flag for using the held shape
+                        self.held_used = True
                 if event.key == pygame.K_r:
-                    # Restart the current game
-                    self.__init__()  # Reinitialize the game state
-                    return None  # Continue the game
+                    self.__init__()
+                    return None
                 if event.key == pygame.K_ESCAPE:
-                    # Go back to the menu
-                    return "menu"  # Return "menu" to go back to the menu
+                    return "menu"
         return None
 
     def handle_key_presses(self):
@@ -176,21 +230,21 @@ class TetrisGame:
             if self.grid.valid_move(self.current_shape.shape, self.current_x - 1, self.current_y):
                 if self.move_time_horizontal == 0 or self.move_time_horizontal >= horizontal_move_delay:
                     self.current_x -= 1
-                    self.move_time_horizontal = 0  # Reset time to prevent instant movement
+                    self.move_time_horizontal = 0
                 if self.move_time_horizontal >= self.acceleration_threshold:
                     horizontal_move_delay = self.accelerated_move_delay_horizontal
         if keys[pygame.K_RIGHT]:
             if self.grid.valid_move(self.current_shape.shape, self.current_x + 1, self.current_y):
                 if self.move_time_horizontal == 0 or self.move_time_horizontal >= horizontal_move_delay:
                     self.current_x += 1
-                    self.move_time_horizontal = 0  # Reset time to prevent instant movement
+                    self.move_time_horizontal = 0
                 if self.move_time_horizontal >= self.acceleration_threshold:
                     horizontal_move_delay = self.accelerated_move_delay_horizontal
         if keys[pygame.K_DOWN]:
             if self.grid.valid_move(self.current_shape.shape, self.current_x, self.current_y + 1):
                 if self.move_time_vertical == 0 or self.move_time_vertical >= vertical_move_delay:
                     self.current_y += 1
-                    self.move_time_vertical = 0  # Reset time to prevent instant movement
+                    self.move_time_vertical = 0
                 if self.move_time_vertical >= self.acceleration_threshold:
                     vertical_move_delay = self.accelerated_move_delay_vertical
         self.move_time_horizontal += time_passed
@@ -202,17 +256,23 @@ class TetrisGame:
 
     def clear_lines(self):
         lines_cleared = self.grid.clear_lines()
-        # Optionally, handle scoring based on lines cleared
+        if lines_cleared > 0:
+            self.score += SCORE_TABLE.get(lines_cleared, 0)
+            self.lines_cleared += lines_cleared
+            # Увеличиваем уровень каждые 10 очищенных линий
+            if self.lines_cleared >= self.level * 10:
+                self.level += 1
+                self.initial_move_delay_vertical = max(50, self.initial_move_delay_vertical - 20)  # Увеличиваем скорость
 
     def spawn_new_shape(self):
         self.current_shape = self.next_shapes.pop(0)
         self.next_shapes.append(self.get_next_shape())
         self.current_x = GRID_WIDTH // 2 - len(self.current_shape.shape[0]) // 2
         self.current_y = 0
-        self.held_used = False  # Reset the flag for using the held shape
+        self.held_used = False
 
     def update_falling_shape(self):
-        if self.fall_time / 1000 >= 1:
+        if self.fall_time / 1000 >= (1 / self.level):  # Регулируем скорость падения в зависимости от уровня
             if self.grid.valid_move(self.current_shape.shape, self.current_x, self.current_y + 1):
                 self.current_y += 1
             else:
@@ -221,7 +281,7 @@ class TetrisGame:
                 self.spawn_new_shape()
             if not self.grid.valid_move(self.current_shape.shape, self.current_x, self.current_y):
                 self.game_over = True
-            self.fall_time = 0  # Reset time after falling
+            self.fall_time = 0
 
     def draw_shadow(self, screen):
         shadow_y = self.current_y
@@ -229,196 +289,298 @@ class TetrisGame:
             shadow_y += 1
         self.current_shape.draw(screen, self.current_x, shadow_y, alpha=128)
 
-    def draw_held_shape(self, screen):
+    def draw_held_info(self, screen):
+        # Позиция для отрисовки удержанной фигуры
+        offset_x = 10  # Отступ от игрового поля
+        offset_y = 40  # Отступ сверху
+        pygame.draw.rect(screen, GRAY, (offset_x, offset_y, GRID_SIZE * 4, GRID_SIZE * 4), 1)
         if self.held_shape is not None:
+
+            # Рисуем удержанную фигуру
             for i, row in enumerate(self.held_shape.shape):
                 for j, cell in enumerate(row):
                     if cell:
-                        self.held_shape.draw(screen, 1, 1)
+                        # Рассчитываем позицию каждого блока фигуры
+                        block_x = offset_x + j * GRID_SIZE
+                        block_y = offset_y + i * GRID_SIZE
+                        pygame.draw.rect(screen, self.held_shape.color, (block_x, block_y, GRID_SIZE, GRID_SIZE))
+                        pygame.draw.rect(screen, GRAY, (block_x, block_y, GRID_SIZE, GRID_SIZE), 1)
 
     def draw_next_shapes(self, screen):
-        offset_x = GRID_SIZE # Offset from the playing field
-        offset_y = 200
-        spacing = int(GRID_SIZE) * 3  # Spacing between shapes
+        offset_x = (GRID_WIDTH * GRID_SIZE) // 2  # Отступ от игрового поля
+        offset_y = 40  # Отступ сверху
+        spacing = GRID_SIZE * 4  # Расстояние между фигурами
+
         for idx, shape in enumerate(self.next_shapes):
-            max_height = max(len(row) for row in shape.shape)
-            max_width = len(shape.shape[0])
-            x = offset_x // 2  # Center the shape horizontally
-            y = offset_y + idx * spacing + (5 - max_height) * GRID_SIZE // 2  # Center the shape vertically
+            # Рассчитываем позицию для каждой фигуры
+            x = offset_x
+            y = offset_y + idx * spacing
+
+            # Рисуем фон для каждой фигуры (опционально)
+            pygame.draw.rect(screen, GRAY, (x, y, GRID_SIZE * 4, GRID_SIZE * 4), 1)
+
+            # Рисуем фигуру
             for i, row in enumerate(shape.shape):
                 for j, cell in enumerate(row):
                     if cell:
-                        shape.draw(screen, x // GRID_SIZE, y // GRID_SIZE)
+                        # Рассчитываем позицию каждого блока фигуры
+                        block_x = x + j * GRID_SIZE
+                        block_y = y + i * GRID_SIZE
+                        pygame.draw.rect(screen, shape.color, (block_x, block_y, GRID_SIZE, GRID_SIZE))
+                        pygame.draw.rect(screen, GRAY, (block_x, block_y, GRID_SIZE, GRID_SIZE), 1)
 
     def draw_info_window(self, screen):
         info_surface = pygame.Surface((SCREEN_WIDTH - GRID_WIDTH * GRID_SIZE, SCREEN_HEIGHT))
         info_surface.fill(BLACK)
-        # Draw headers
         font = pygame.font.Font(None, 36)
-        held_text = font.render("Held", True, WHITE)
-        next_text = font.render("Next", True, WHITE)
+        held_text = font.render("Удержано", True, WHITE)
+        next_text = font.render("Следующие", True, WHITE)
+        score_text = font.render(f"Очки: {self.score}", True, WHITE)
+        level_text = font.render(f"Уровень: {self.level}", True, WHITE)
         info_surface.blit(held_text, (10, 10))
-        info_surface.blit(next_text, (10, 150))
-        # Draw held shape
-        self.draw_held_shape(info_surface)
-        # Draw next shapes
+        info_surface.blit(next_text, (150, 10))
+        info_surface.blit(score_text, (10, 300))
+        info_surface.blit(level_text, (10, 350))
+        self.draw_held_info(info_surface)
         self.draw_next_shapes(info_surface)
-        # Draw info window on the main screen
         screen.blit(info_surface, (GRID_WIDTH * GRID_SIZE, 0))
 
     def main_loop(self):
         while not self.game_over:
-            print("Main loop iteration")
             screen.fill(BLACK)
-            # Handle events
             result = self.handle_events()
             if result is not None:
                 return result
-            # Handle key presses
             self.handle_key_presses()
-            # Update falling shape
             self.update_falling_shape()
-            # Draw grid
             self.grid.draw(screen)
-            # Draw shadow
             self.draw_shadow(screen)
-            # Draw current shape
             self.current_shape.draw(screen, self.current_x, self.current_y)
-            # Draw info window
             self.draw_info_window(screen)
             pygame.display.flip()
-            self.clock.tick(592)  # Limit frame rate to 592 frames per second
-        return self.show_game_over_screen()
+            self.clock.tick(60)
+
+        # После проигрыша показываем экран Game Over
+        result = self.show_game_over_screen()
+        return result  # Возвращаем результат в run_game
 
     def show_game_over_screen(self):
         while True:
             screen.fill(BLACK)
-            # Display game over message
             game_over_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
             game_over_surface.fill(BLACK)
             font = pygame.font.Font(None, 72)
-            game_over_text = font.render("Game Over", True, WHITE)
-            restart_text = font.render("Press R to Restart", True, WHITE)
-            menu_text = font.render("Press ESC to Menu", True, WHITE)
+            game_over_text = font.render("Игра окончена", True, WHITE)
+            restart_text = font.render("Нажмите R для перезапуска", True, WHITE)
+            menu_text = font.render("Нажмите ESC для выхода в меню", True, WHITE)
+            score_text = font.render(f"Финальный счет: {self.score}", True, WHITE)
             game_over_surface.blit(game_over_text, (SCREEN_WIDTH // 2 - game_over_text.get_width() // 2,
-                                                    SCREEN_HEIGHT // 2 - game_over_text.get_height() // 2 - 50))
+                                                    SCREEN_HEIGHT // 2 - game_over_text.get_height() // 2 - 100))
+            game_over_surface.blit(score_text, (SCREEN_WIDTH // 2 - score_text.get_width() // 2,
+                                                SCREEN_HEIGHT // 2 - score_text.get_height() // 2 - 50))
             game_over_surface.blit(restart_text, (SCREEN_WIDTH // 2 - restart_text.get_width() // 2,
-                                                    SCREEN_HEIGHT // 2 - restart_text.get_height() // 2))
+                                                  SCREEN_HEIGHT // 2 - restart_text.get_height() // 2 + 50))
             game_over_surface.blit(menu_text, (SCREEN_WIDTH // 2 - menu_text.get_width() // 2,
-                                                    SCREEN_HEIGHT // 2 - menu_text.get_height() // 2 + 50))
+                                               SCREEN_HEIGHT // 2 - menu_text.get_height() // 2 + 100))
             screen.blit(game_over_surface, (0, 0))
             pygame.display.flip()
-            # Wait for the R key to restart the game or ESC to go back to the menu
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    return True  # Return True to quit the entire program
+                    return True  # Выход из игры
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_r:
-                        self.__init__()  # Reinitialize the game state
-                        return None  # Continue the game
+                        # Перезапуск игры
+                        self.__init__(
+                            initial_move_delay_horizontal=global_settings["initial_move_delay_horizontal"],
+                            accelerated_move_delay_horizontal=global_settings["accelerated_move_delay_horizontal"],
+                            initial_move_delay_vertical=global_settings["initial_move_delay_vertical"],
+                            accelerated_move_delay_vertical=global_settings["accelerated_move_delay_vertical"],
+                            acceleration_threshold=global_settings["acceleration_threshold"]
+                        )
+                        return "restart"  # Возвращаем "restart" для перезапуска
                     if event.key == pygame.K_ESCAPE:
-                        return "menu"  # Return "menu" to go back to the menu
+                        return "menu"  # Возврат в главное меню
 
+# Меню настроек с InputBox
 def show_settings_menu():
+    # InputBox с значениями по умолчанию из global_settings
+    input_boxes = [
+        InputBox(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 8, 200, 40,
+                 str(global_settings["initial_move_delay_horizontal"])),
+        InputBox(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 8 + 80, 200, 40,
+                 str(global_settings["accelerated_move_delay_horizontal"])),
+        InputBox(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 8 + 160, 200, 40,
+                 str(global_settings["initial_move_delay_vertical"])),
+        InputBox(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 8 + 240, 200, 40,
+                 str(global_settings["accelerated_move_delay_vertical"])),
+        InputBox(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 8 + 320, 200, 40,
+                 str(global_settings["acceleration_threshold"]))
+    ]
+
+    # Кнопка "Назад"
+    back_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 150, 200, 40)
+
     while True:
         screen.fill(BLACK)
-        # Draw settings text
-        font = pygame.font.Font(None, 72)
+        font = pygame.font.Font(None, 36)
+
+        # Заголовок настроек
         settings_title_text = font.render("Настройки", True, WHITE)
-        back_text = font.render("Назад", True, WHITE)
         screen.blit(settings_title_text,
-                    (SCREEN_WIDTH // 2 - settings_title_text.get_width() // 2, SCREEN_HEIGHT // 2 - 150))
-        screen.blit(back_text, (SCREEN_WIDTH // 2 - back_text.get_width() // 2, SCREEN_HEIGHT // 2 + 200))
-        # Check for button click
+                    (settings_title_text.get_width() // 2, SCREEN_HEIGHT // 8))
+
+        # Текстовые пояснения для каждого InputBox
+        explanations = [
+            "Начальная задержка по горизонтали (мс):",
+            "Ускоренная задержка по горизонтали (мс):",
+            "Начальная задержка по вертикали (мс):",
+            "Ускоренная задержка по вертикали (мс):",
+            "Порог ускорения (мс):"
+        ]
+
+        # Рисуем пояснения для InputBox
+        for i, box in enumerate(input_boxes):
+            # Рисуем пояснительный текст
+            explanation_text = font.render(explanations[i], True, WHITE)
+            screen.blit(explanation_text, (SCREEN_WIDTH // 2 - 250, box.rect.y - 30))
+
+            # Рисуем InputBox
+            box.draw(screen)
+
+        # Кнопка "Назад"
+        pygame.draw.rect(screen, GRAY, back_button_rect)
+        back_text = font.render("Назад", True, WHITE)
+        screen.blit(back_text, (back_button_rect.x + 70, back_button_rect.y + 10))
+
+        # Обработка наведения мыши на кнопку "Назад"
         mouse_pos = pygame.mouse.get_pos()
         mouse_clicked = pygame.mouse.get_pressed()[0]
-        # Button rect
-        back_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - back_text.get_width() // 2, SCREEN_HEIGHT // 2 + 200,
-                                       back_text.get_width(), back_text.get_height())
+
         if back_button_rect.collidepoint(mouse_pos):
-            back_text = font.render("Назад", True, GRAY)
-            screen.blit(back_text, (SCREEN_WIDTH // 2 - back_text.get_width() // 2, SCREEN_HEIGHT // 2 + 200))
+            pygame.draw.rect(screen, WHITE, back_button_rect, 2)
             if mouse_clicked:
-                show_menu()
-        pygame.display.flip()
+                # Обновляем глобальные настройки новыми значениями
+                global_settings["initial_move_delay_horizontal"] = int(input_boxes[0].text)
+                global_settings["accelerated_move_delay_horizontal"] = int(input_boxes[1].text)
+                global_settings["initial_move_delay_vertical"] = int(input_boxes[2].text)
+                global_settings["accelerated_move_delay_vertical"] = int(input_boxes[3].text)
+                global_settings["acceleration_threshold"] = int(input_boxes[4].text)
+                return None  # Возврат в главное меню
+
+        # Обработка событий
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                print("Quit event detected in settings")
-                return True  # Return True to quit the entire program
+                return True
+
+            for box in input_boxes:
+                box.handle_event(event)
+
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if back_button_rect.collidepoint(event.pos):
-                    print("Back button clicked")
-                    return None  # Возвращаем управление, чтобы вернуться в меню
+                    # Обновляем глобальные настройки новыми значениями
+                    global_settings["initial_move_delay_horizontal"] = int(input_boxes[0].text)
+                    global_settings["accelerated_move_delay_horizontal"] = int(input_boxes[1].text)
+                    global_settings["initial_move_delay_vertical"] = int(input_boxes[2].text)
+                    global_settings["accelerated_move_delay_vertical"] = int(input_boxes[3].text)
+                    global_settings["acceleration_threshold"] = int(input_boxes[4].text)
+
+                    return None  # Возврат в главное меню
+
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    print("Escape key pressed in settings")
-                    return None  # Возвращаем управление, чтобы вернуться в меню
+                    return None  # Возврат в главное меню
 
-def run_game():
-    while True:
-        print("Entering menu...")
-        menu_result = show_menu()
-        if menu_result is True:
-            break  # Quit the entire program
-        elif menu_result == "settings":
-            print("Entering settings menu...")
-            settings_result = show_settings_menu()
-            if settings_result is True:
-                break  # Quit the entire program
-            elif settings_result is None:
-                continue  # Go back to the menu
-        elif menu_result is None:
-            print("Starting a new game...")
-            game = TetrisGame()
-            result = game.main_loop()
-            if result is True:
-                break  # Quit the entire программ
-            elif result == "menu":
-                continue  # Go back to the menu
+        pygame.display.flip()
 
+# Главное меню
 def show_menu():
     while True:
         screen.fill(BLACK)
-        # Draw menu text
         font = pygame.font.Font(None, 72)
-        title_text = font.render("Tetris", True, WHITE)
-        start_text = font.render("Start Game", True, WHITE)
+        title_text = font.render("Тетрис", True, WHITE)
+        start_text = font.render("Начать игру", True, WHITE)
         settings_text = font.render("Настройки", True, WHITE)
         screen.blit(title_text, (SCREEN_WIDTH // 2 - title_text.get_width() // 2, SCREEN_HEIGHT // 2 - 150))
         screen.blit(start_text, (SCREEN_WIDTH // 2 - start_text.get_width() // 2, SCREEN_HEIGHT // 2 - 50))
         screen.blit(settings_text, (SCREEN_WIDTH // 2 - settings_text.get_width() // 2, SCREEN_HEIGHT // 2 + 50))
-        # Check for button click
+
         mouse_pos = pygame.mouse.get_pos()
         mouse_clicked = pygame.mouse.get_pressed()[0]
-        # Button rects
+
+        # Определяем прямоугольники кнопок
         start_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - start_text.get_width() // 2, SCREEN_HEIGHT // 2 - 50,
                                         start_text.get_width(), start_text.get_height())
         settings_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - settings_text.get_width() // 2, SCREEN_HEIGHT // 2 + 50,
                                            settings_text.get_width(), settings_text.get_height())
+
+        # Подсветка кнопок при наведении
         if start_button_rect.collidepoint(mouse_pos):
-            start_text = font.render("Start Game", True, GRAY)
+            start_text = font.render("Начать игру", True, GRAY)
             screen.blit(start_text, (SCREEN_WIDTH // 2 - start_text.get_width() // 2, SCREEN_HEIGHT // 2 - 50))
             if mouse_clicked:
-                print("Start Game clicked")  # Debug print
-                return None
+                return None  # Начать игру
 
         if settings_button_rect.collidepoint(mouse_pos):
             settings_text = font.render("Настройки", True, GRAY)
             screen.blit(settings_text, (SCREEN_WIDTH // 2 - settings_text.get_width() // 2, SCREEN_HEIGHT // 2 + 50))
             if mouse_clicked:
-                print("Settings clicked")  # Debug print
-                return "settings"
+                return "settings"  # Перейти в меню настроек
 
         pygame.display.flip()
 
+        # Обработка событий
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                print("Quit event detected")  # Debug print
-                return True  # Return True to quit the entire program
+                return True  # Выход из игры
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
-                    print("Enter key pressed")  # Debug print
-                    return None
+                    return None  # Начать игру
+
+# Запуск игры
+def run_game():
+    while True:
+        # Показываем главное меню и ждем ввода пользователя
+        menu_result = show_menu()
+
+        # Если пользователь выходит из главного меню, завершаем игру
+        if menu_result is True:
+            break
+
+        # Если пользователь выбирает "Настройки" в главном меню
+        elif menu_result == "settings":
+            # Показываем меню настроек и ждем ввода пользователя
+            settings_result = show_settings_menu()
+
+            # Если пользователь выходит из меню настроек, завершаем игру
+            if settings_result is True:
+                break
+
+            # Если пользователь выходит из меню настроек (без выхода), возвращаемся в главное меню
+            elif settings_result is None:
+                continue  # Возврат в главное меню
+
+        # Если пользователь выбирает "Начать игру" в главном меню
+        elif menu_result is None:
+            # Инициализируем игру с глобальными настройками
+            game = TetrisGame(
+                initial_move_delay_horizontal=global_settings["initial_move_delay_horizontal"],
+                accelerated_move_delay_horizontal=global_settings["accelerated_move_delay_horizontal"],
+                initial_move_delay_vertical=global_settings["initial_move_delay_vertical"],
+                accelerated_move_delay_vertical=global_settings["accelerated_move_delay_vertical"],
+                acceleration_threshold=global_settings["acceleration_threshold"]
+            )
+
+            # Запускаем игровой цикл
+            result = game.main_loop()
+
+            # Обрабатываем результат игрового цикла
+            if result is True:  # Если пользователь выходит из игры
+                break
+            elif result == "menu":  # Если пользователь возвращается в главное меню
+                continue
+            elif result == "restart":  # Если пользователь перезапускает игру
+                continue  # Перезапускаем игру
 
 if __name__ == "__main__":
     run_game()
