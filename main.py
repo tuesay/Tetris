@@ -1,5 +1,7 @@
 import pygame
 import random
+import socket
+import threading
 
 # Инициализация PyGame
 pygame.init()
@@ -56,13 +58,14 @@ pygame.display.set_caption("Tetris")
 
 # Класс InputBox (для меню настроек)
 class InputBox:
-    def __init__(self, x, y, w, h, text=''):
+    def __init__(self, x, y, w, h, text='', allowed_chars=None):
         self.rect = pygame.Rect(x, y, w, h)
         self.color = GRAY
         self.text = text
         self.font = pygame.font.Font(None, 36)
         self.txt_surface = self.font.render(text, True, self.color)
         self.active = False
+        self.allowed_chars = allowed_chars  # Список разрешенных символов
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -79,7 +82,9 @@ class InputBox:
                 elif event.key == pygame.K_BACKSPACE:
                     self.text = self.text[:-1]
                 else:
-                    self.text += event.unicode
+                    # Проверяем, разрешен ли символ
+                    if self.allowed_chars is None or event.unicode in self.allowed_chars:
+                        self.text += event.unicode
                 self.txt_surface = self.font.render(self.text, True, self.color)
 
     def update(self):
@@ -89,7 +94,6 @@ class InputBox:
     def draw(self, screen):
         screen.blit(self.txt_surface, (self.rect.x + 5, self.rect.y + 5))
         pygame.draw.rect(screen, self.color, self.rect, 2)
-
 # Класс Grid
 class Grid:
     def __init__(self, width, height):
@@ -402,6 +406,109 @@ class TetrisGame:
                     if event.key == pygame.K_ESCAPE:
                         return "menu"  # Возврат в главное меню
 
+# Класс клиентского подключения
+class BattleClient:
+    def __init__(self, server_ip, server_port):
+        self.server_ip = server_ip
+        self.server_port = server_port
+        self.client_socket = None
+        self.connected = False
+        self.receive_thread = None
+        self.connection_error = None  # Флаг для ошибки подключения
+
+    def connect(self):
+        """Подключение к серверу."""
+        try:
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.settimeout(30)  # Увеличиваем таймаут до 30 секунд
+            self.client_socket.connect((self.server_ip, self.server_port))
+            self.connected = True
+            print(f"Подключено к серверу {self.server_ip}:{self.server_port}")
+
+            # Запускаем поток для получения данных от сервера
+            self.receive_thread = threading.Thread(target=self.receive_data)
+            self.receive_thread.start()
+        except socket.gaierror as e:
+            self.connection_error = f"Ошибка подключения: Неверный IP-адрес или порт. ({e})"
+        except socket.timeout:
+            self.connection_error = "Ошибка подключения: Таймаут подключения."
+        except ConnectionRefusedError:
+            self.connection_error = "Ошибка подключения: Сервер недоступен."
+        except Exception as e:
+            self.connection_error = f"Ошибка подключения: {e}"
+        finally:
+            if not self.connected:
+                self.disconnect()
+
+    def receive_data(self):
+        """Получение данных от сервера."""
+        while self.connected:
+            try:
+                data = self.client_socket.recv(1024).decode()
+                if not data:
+                    print("Сервер отключился.")
+                    self.disconnect()
+                    break
+                print(f"Получено от сервера: {data}")
+                # Здесь можно обрабатывать полученные данные (например, обновлять игровое состояние)
+            except socket.timeout:
+                print("Таймаут получения данных. Проверьте соединение.")
+                self.disconnect()
+                break
+            except Exception as e:
+                print(f"Ошибка получения данных: {e}")
+                self.disconnect()
+                break
+
+    def send_data(self, data):
+        """Отправка данных на сервер."""
+        if self.connected:
+            try:
+                self.client_socket.send(data.encode())
+            except Exception as e:
+                print(f"Ошибка отправки данных: {e}")
+                self.disconnect()
+
+    def disconnect(self):
+        """Отключение от сервера."""
+        if self.connected:
+            self.client_socket.close()
+            self.connected = False
+            print("Отключено от сервера.")
+
+# Класс игры сражения
+class BattleTetrisGame:
+    def __init__(self, server_ip, server_port):
+        self.server_ip = server_ip
+        self.server_port = server_port
+        self.client = BattleClient(server_ip, server_port)
+        self.client.connect()
+
+    def main_loop(self):
+        """Основной игровой цикл для режима сражения."""
+        if self.client.connection_error:
+            # Если есть ошибка подключения, показываем сообщение и возвращаемся в меню
+            show_error_message(self.client.connection_error)
+            return "menu"
+
+        while self.client.connected:  # Проверяем состояние подключения
+            # Здесь будет логика игры
+            pass
+
+        # Если клиент отключился, возвращаемся в меню
+        show_error_message("Соединение с сервером потеряно.")
+        return "menu"
+
+    def handle_events(self):
+        """Обработка событий в режиме сражения."""
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return True
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return "menu"
+        return None
+
 # Меню настроек с InputBox
 def show_settings_menu():
     # InputBox с значениями по умолчанию из global_settings
@@ -493,37 +600,108 @@ def show_settings_menu():
 
         pygame.display.flip()
 
+def show_battle_connection_menu():
+    # Создаем InputBox для IP-адреса и порта
+    ip_input = InputBox(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, 200, 40, allowed_chars="0123456789.")
+    port_input = InputBox(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 50, 200, 40, allowed_chars="0123456789")
+
+    # Кнопка "Подключиться"
+    connect_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 150, 200, 40)
+
+    while True:
+        screen.fill(BLACK)
+        font = pygame.font.Font(None, 36)
+
+        # Заголовок
+        title_text = font.render("Подключение к серверу", True, WHITE)
+        screen.blit(title_text, (SCREEN_WIDTH // 2 - title_text.get_width() // 2, SCREEN_HEIGHT // 2 - 150))
+
+        # Подписи для InputBox
+        ip_label = font.render("IP-адрес:", True, WHITE)
+        port_label = font.render("Порт:", True, WHITE)
+        screen.blit(ip_label, (SCREEN_WIDTH // 2 - 250, SCREEN_HEIGHT // 2 - 50))
+        screen.blit(port_label, (SCREEN_WIDTH // 2 - 250, SCREEN_HEIGHT // 2 + 50))
+
+        # Рисуем InputBox
+        ip_input.draw(screen)
+        port_input.draw(screen)
+
+        # Кнопка "Подключиться"
+        pygame.draw.rect(screen, GRAY, connect_button_rect)
+        connect_text = font.render("Подключиться", True, WHITE)
+        screen.blit(connect_text, (connect_button_rect.x + 20, connect_button_rect.y + 10))
+
+        # Обработка наведения мыши на кнопку "Подключиться"
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_clicked = pygame.mouse.get_pressed()[0]
+
+        if connect_button_rect.collidepoint(mouse_pos):
+            pygame.draw.rect(screen, WHITE, connect_button_rect, 2)
+            if mouse_clicked:
+                # Возвращаем введенные данные
+                return ip_input.text, int(port_input.text)
+
+        # Обработка событий
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return None, None  # Выход из меню
+
+            ip_input.handle_event(event)
+            port_input.handle_event(event)
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return None, None  # Выход из меню
+
+        pygame.display.flip()
+
 # Главное меню
 def show_menu():
     while True:
         screen.fill(BLACK)
         font = pygame.font.Font(None, 72)
         title_text = font.render("Тетрис", True, WHITE)
-        start_text = font.render("Начать игру", True, WHITE)
+        battle_text = font.render("Сражение", True, WHITE)  # Новая кнопка "Сражение"
+        single_player_text = font.render("Одиночная игра", True, WHITE)  # Переименованная кнопка
         settings_text = font.render("Настройки", True, WHITE)
-        screen.blit(title_text, (SCREEN_WIDTH // 2 - title_text.get_width() // 2, SCREEN_HEIGHT // 2 - 150))
-        screen.blit(start_text, (SCREEN_WIDTH // 2 - start_text.get_width() // 2, SCREEN_HEIGHT // 2 - 50))
-        screen.blit(settings_text, (SCREEN_WIDTH // 2 - settings_text.get_width() // 2, SCREEN_HEIGHT // 2 + 50))
+
+        # Отображение текста на экране
+        screen.blit(title_text, (SCREEN_WIDTH // 2 - title_text.get_width() // 2, SCREEN_HEIGHT // 2 - 200))
+        screen.blit(battle_text,
+                    (SCREEN_WIDTH // 2 - battle_text.get_width() // 2, SCREEN_HEIGHT // 2 - 100))  # Новая кнопка
+        screen.blit(single_player_text, (
+        SCREEN_WIDTH // 2 - single_player_text.get_width() // 2, SCREEN_HEIGHT // 2))  # Переименованная кнопка
+        screen.blit(settings_text, (SCREEN_WIDTH // 2 - settings_text.get_width() // 2, SCREEN_HEIGHT // 2 + 100))
 
         mouse_pos = pygame.mouse.get_pos()
         mouse_clicked = pygame.mouse.get_pressed()[0]
 
         # Определяем прямоугольники кнопок
-        start_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - start_text.get_width() // 2, SCREEN_HEIGHT // 2 - 50,
-                                        start_text.get_width(), start_text.get_height())
-        settings_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - settings_text.get_width() // 2, SCREEN_HEIGHT // 2 + 50,
+        battle_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - battle_text.get_width() // 2, SCREEN_HEIGHT // 2 - 100,
+                                         battle_text.get_width(), battle_text.get_height())
+        single_player_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - single_player_text.get_width() // 2,
+                                                SCREEN_HEIGHT // 2,
+                                                single_player_text.get_width(), single_player_text.get_height())
+        settings_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - settings_text.get_width() // 2, SCREEN_HEIGHT // 2 + 100,
                                            settings_text.get_width(), settings_text.get_height())
 
         # Подсветка кнопок при наведении
-        if start_button_rect.collidepoint(mouse_pos):
-            start_text = font.render("Начать игру", True, GRAY)
-            screen.blit(start_text, (SCREEN_WIDTH // 2 - start_text.get_width() // 2, SCREEN_HEIGHT // 2 - 50))
+        if battle_button_rect.collidepoint(mouse_pos):
+            battle_text = font.render("Сражение", True, GRAY)
+            screen.blit(battle_text, (SCREEN_WIDTH // 2 - battle_text.get_width() // 2, SCREEN_HEIGHT // 2 - 100))
             if mouse_clicked:
-                return None  # Начать игру
+                return "battle"  # Возвращаем "battle" для запуска режима сражения
+
+        if single_player_button_rect.collidepoint(mouse_pos):
+            single_player_text = font.render("Одиночная игра", True, GRAY)
+            screen.blit(single_player_text,
+                        (SCREEN_WIDTH // 2 - single_player_text.get_width() // 2, SCREEN_HEIGHT // 2))
+            if mouse_clicked:
+                return None  # Начать одиночную игру
 
         if settings_button_rect.collidepoint(mouse_pos):
             settings_text = font.render("Настройки", True, GRAY)
-            screen.blit(settings_text, (SCREEN_WIDTH // 2 - settings_text.get_width() // 2, SCREEN_HEIGHT // 2 + 50))
+            screen.blit(settings_text, (SCREEN_WIDTH // 2 - settings_text.get_width() // 2, SCREEN_HEIGHT // 2 + 100))
             if mouse_clicked:
                 return "settings"  # Перейти в меню настроек
 
@@ -535,9 +713,8 @@ def show_menu():
                 return True  # Выход из игры
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
-                    return None  # Начать игру
+                    return None  # Начать одиночную игру
 
-# Запуск игры
 def run_game():
     while True:
         # Показываем главное меню и ждем ввода пользователя
@@ -549,20 +726,14 @@ def run_game():
 
         # Если пользователь выбирает "Настройки" в главном меню
         elif menu_result == "settings":
-            # Показываем меню настроек и ждем ввода пользователя
             settings_result = show_settings_menu()
-
-            # Если пользователь выходит из меню настроек, завершаем игру
             if settings_result is True:
                 break
-
-            # Если пользователь выходит из меню настроек (без выхода), возвращаемся в главное меню
             elif settings_result is None:
-                continue  # Возврат в главное меню
+                continue
 
-        # Если пользователь выбирает "Начать игру" в главном меню
+        # Если пользователь выбирает "Одиночная игра" в главном меню
         elif menu_result is None:
-            # Инициализируем игру с глобальными настройками
             game = TetrisGame(
                 initial_move_delay_horizontal=global_settings["initial_move_delay_horizontal"],
                 accelerated_move_delay_horizontal=global_settings["accelerated_move_delay_horizontal"],
@@ -570,17 +741,45 @@ def run_game():
                 accelerated_move_delay_vertical=global_settings["accelerated_move_delay_vertical"],
                 acceleration_threshold=global_settings["acceleration_threshold"]
             )
-
-            # Запускаем игровой цикл
             result = game.main_loop()
-
-            # Обрабатываем результат игрового цикла
-            if result is True:  # Если пользователь выходит из игры
+            if result is True:
                 break
-            elif result == "menu":  # Если пользователь возвращается в главное меню
+            elif result == "menu":
                 continue
-            elif result == "restart":  # Если пользователь перезапускает игру
-                continue  # Перезапускаем игру
+            elif result == "restart":
+                continue
+
+        # Если пользователь выбирает "Сражение" в главном меню
+        elif menu_result == "battle":
+            # Показываем меню подключения
+            server_ip, server_port = show_battle_connection_menu()
+
+            # Если пользователь ввел данные и нажал "Подключиться"
+            if server_ip and server_port:
+                try:
+                    # Создаем и запускаем режим сражения
+                    battle_game = BattleTetrisGame(server_ip, server_port)
+                    result = battle_game.main_loop()
+
+                    # Обрабатываем результат
+                    if result == "menu":
+                        continue
+                except Exception as e:
+                    # Обработка ошибок подключения
+                    print(f"Ошибка подключения: {e}")
+                    # Показываем сообщение об ошибке
+                    show_error_message(f"Ошибка подключения: {e}")
+                    # Возвращаемся в главное меню
+                    continue
+
+def show_error_message(message):
+    """Функция для отображения сообщения об ошибке."""
+    screen.fill(BLACK)
+    font = pygame.font.Font(None, 36)
+    error_text = font.render(message, True, WHITE)
+    screen.blit(error_text, (SCREEN_WIDTH // 2 - error_text.get_width() // 2, SCREEN_HEIGHT // 2))
+    pygame.display.flip()
+    pygame.time.delay(2000)  # Задержка для отображения сообщения
 
 if __name__ == "__main__":
     run_game()
