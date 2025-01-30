@@ -415,6 +415,8 @@ class BattleClient:
         self.connected = False
         self.receive_thread = None
         self.connection_error = None  # Флаг для ошибки подключения
+        self.waiting_for_second_player = False  # Flag for second player waiting
+        self.game_started = False  # Flag for GAME_STARTED event on the server
 
     def connect(self):
         """Подключение к серверу."""
@@ -450,6 +452,12 @@ class BattleClient:
                     self.disconnect()
                     break
                 print(f"Получено от сервера: {data}")
+                # Обрабатываем сообщение о том, что ожидается второй игрок
+                if data == "Ожидаем второго игрока...":
+                    self.waiting_for_second_player = True
+                elif data == 'Игра началась!':
+                    self.game_started = True
+                    self.waiting_for_second_player = False
                 # Здесь можно обрабатывать полученные данные (например, обновлять игровое состояние)
             except socket.timeout:
                 print("Таймаут получения данных. Проверьте соединение.")
@@ -483,6 +491,14 @@ class BattleTetrisGame:
         self.server_port = server_port
         self.client = BattleClient(server_ip, server_port)
         self.client.connect()
+        self.game = TetrisGame(
+            initial_move_delay_horizontal=global_settings["initial_move_delay_horizontal"],
+            accelerated_move_delay_horizontal=global_settings["accelerated_move_delay_horizontal"],
+            initial_move_delay_vertical=global_settings["initial_move_delay_vertical"],
+            accelerated_move_delay_vertical=global_settings["accelerated_move_delay_vertical"],
+            acceleration_threshold=global_settings["acceleration_threshold"]
+        )
+
 
     def main_loop(self):
         """Основной игровой цикл для режима сражения."""
@@ -492,12 +508,60 @@ class BattleTetrisGame:
             return "menu"
 
         while self.client.connected:  # Проверяем состояние подключения
+
             # Здесь будет логика игры
-            pass
+
+            if self.client.waiting_for_second_player:
+                result = self.show_waiting_for_second_player()
+
+                if result == "menu":
+                    return "menu"
+
+            elif self.client.game_started:
+                result = self.game_loop()
+                if result == "menu":
+                    return "menu"
 
         # Если клиент отключился, возвращаемся в меню
         show_error_message("Соединение с сервером потеряно.")
         return "menu"
+
+    def game_loop(self):
+        """Основной игровой цикл после начала игры."""
+        clock = pygame.time.Clock()
+        while not self.game.game_over:
+            screen.fill(BLACK)
+            result = self.game.handle_events()
+            if result is not None:
+                return result
+            self.game.handle_key_presses()
+            self.game.update_falling_shape()
+            self.game.grid.draw(screen)
+            self.game.draw_shadow(screen)
+            self.game.current_shape.draw(screen, self.game.current_x, self.game.current_y)
+            self.game.draw_info_window(screen)
+            pygame.display.flip()
+            clock.tick(60)
+        # После проигрыша показываем экран Game Over
+        result = self.game.show_game_over_screen()
+        return result  # Возвращаем результат в run_game
+
+    def show_waiting_for_second_player(self):
+        """Отображение сообщения о том, что ожидается второй игрок."""
+        while self.client.waiting_for_second_player:
+            screen.fill(BLACK)
+            font = pygame.font.Font(None, 36)
+            waiting_text = font.render("Ожидаем второго игрока...", True, WHITE)
+            screen.blit(waiting_text, (SCREEN_WIDTH // 2 - waiting_text.get_width() // 2, SCREEN_HEIGHT // 2))
+            pygame.display.flip()
+            result = self.handle_events()
+            if result == "menu":
+                self.client.disconnect()
+                return "menu"
+        return None
+
+    def ok_debug(self):
+        print("OK_debug()")
 
     def handle_events(self):
         """Обработка событий в режиме сражения."""
@@ -715,6 +779,7 @@ def show_menu():
                 if event.key == pygame.K_RETURN:
                     return None  # Начать одиночную игру
 
+# Запуск игры
 def run_game():
     while True:
         # Показываем главное меню и ждем ввода пользователя
@@ -763,6 +828,9 @@ def run_game():
 
                     # Обрабатываем результат
                     if result == "menu":
+                        continue
+                    elif result == "game_started":
+                        print("GAME STARTED")
                         continue
                 except Exception as e:
                     # Обработка ошибок подключения
