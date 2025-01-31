@@ -186,7 +186,6 @@ class BattleTetrisGame:
             # OP GAME
 
             self.op_game.grid.draw(screen, x_offset=self.op_x_offset)
-            self.op_game.current_shape.draw(screen, self.op_game.current_x, self.game.current_y, x_offset=self.op_x_offset)
             self.op_game.draw_info_window(screen, x_offset=self.op_x_offset)
 
             # SENDING THE GAME STATE
