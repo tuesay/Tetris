@@ -15,10 +15,12 @@ class BattleServer:
     def start(self):
         """Запуск сервера."""
         try:
-            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket = socket.socket(
+                socket.AF_INET, socket.SOCK_STREAM)
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(2)  # Ожидаем подключения двух клиентов
-            print(f"Сервер запущен на {self.host}:{self.port}. Ожидание подключений...")
+            print(
+                f"Сервер запущен на {self.host}:{self.port}. Ожидание подключений...")
             while len(self.clients) < 2:
 
                 client_socket, client_address = self.server_socket.accept()
@@ -27,12 +29,15 @@ class BattleServer:
 
                 # Отправляем подтверждение подключения
 
-                self.broadcast("Подключено к серверу. Ожидаем второго игрока...")
+                self.broadcast(
+                    "Подключено к серверу. Ожидаем второго игрока...")
 
-                # Если подключен только один клиент, отправляем ему сообщение о состоянии
+                # Если подключен только один клиент, отправляем ему сообщение о
+                # состоянии
                 if len(self.clients) == 1:
-                    threading.Thread(target=self.notify_waiting, args=(client_socket,)).start()
-
+                    threading.Thread(
+                        target=self.notify_waiting, args=(
+                            client_socket,)).start()
 
             print("Оба игрока подключены. Начинаем игру!")
             # Отправляем сообщение обоим клиентам о начале игры
@@ -41,7 +46,9 @@ class BattleServer:
             self.broadcast("Игра началась!")
 
             for client_socket in self.clients:
-                threading.Thread(target=self.handle_client, args=(client_socket,)).start()
+                threading.Thread(
+                    target=self.handle_client, args=(
+                        client_socket,)).start()
 
         except Exception as e:
             print(f"Ошибка при запуске сервера: {e}")
@@ -69,7 +76,8 @@ class BattleServer:
                 # Преобразуем строку длины в целое число
                 data_len = int(length_prefix.decode('utf-8'))
 
-                # Читаем данные до тех пор, пока не будет считано нужное количество байтов
+                # Читаем данные до тех пор, пока не будет считано нужное
+                # количество байтов
                 received_data = b""
                 while len(received_data) < data_len:
                     chunk = client_socket.recv(data_len - len(received_data))

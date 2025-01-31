@@ -60,7 +60,6 @@ class BattleClient:
                     self.disconnect()
                     break
 
-
                 data_length = int(length_prefix.decode('utf-8'))
 
                 received_data = b""

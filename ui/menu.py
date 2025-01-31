@@ -1,4 +1,4 @@
-#menu.py
+# menu.py
 
 import pygame
 
@@ -6,6 +6,7 @@ from .input_box import InputBox
 
 from game.constants import *
 from game.settings import global_settings
+
 
 def show_settings_menu(screen):
     # InputBox с значениями по умолчанию из global_settings
@@ -23,7 +24,15 @@ def show_settings_menu(screen):
     ]
 
     # Кнопка "Назад"
-    back_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 150, 200, 40)
+    back_button_rect = pygame.Rect(
+        SCREEN_WIDTH //
+        2 -
+        100,
+        SCREEN_HEIGHT //
+        2 +
+        150,
+        200,
+        40)
 
     while True:
         screen.fill(BLACK)
@@ -47,7 +56,10 @@ def show_settings_menu(screen):
         for i, box in enumerate(input_boxes):
             # Рисуем пояснительный текст
             explanation_text = font.render(explanations[i], True, WHITE)
-            screen.blit(explanation_text, (SCREEN_WIDTH // 2 - 250, box.rect.y - 30))
+            screen.blit(
+                explanation_text,
+                (SCREEN_WIDTH // 2 - 250,
+                 box.rect.y - 30))
 
             # Рисуем InputBox
             box.draw(screen)
@@ -55,7 +67,10 @@ def show_settings_menu(screen):
         # Кнопка "Назад"
         pygame.draw.rect(screen, GRAY, back_button_rect)
         back_text = font.render("Назад", True, WHITE)
-        screen.blit(back_text, (back_button_rect.x + 70, back_button_rect.y + 10))
+        screen.blit(
+            back_text,
+            (back_button_rect.x + 70,
+             back_button_rect.y + 10))
 
         # Обработка наведения мыши на кнопку "Назад"
         mouse_pos = pygame.mouse.get_pos()
@@ -65,11 +80,16 @@ def show_settings_menu(screen):
             pygame.draw.rect(screen, WHITE, back_button_rect, 2)
             if mouse_clicked:
                 # Обновляем глобальные настройки новыми значениями
-                global_settings["initial_move_delay_horizontal"] = int(input_boxes[0].text)
-                global_settings["accelerated_move_delay_horizontal"] = int(input_boxes[1].text)
-                global_settings["initial_move_delay_vertical"] = int(input_boxes[2].text)
-                global_settings["accelerated_move_delay_vertical"] = int(input_boxes[3].text)
-                global_settings["acceleration_threshold"] = int(input_boxes[4].text)
+                global_settings["initial_move_delay_horizontal"] = int(
+                    input_boxes[0].text)
+                global_settings["accelerated_move_delay_horizontal"] = int(
+                    input_boxes[1].text)
+                global_settings["initial_move_delay_vertical"] = int(
+                    input_boxes[2].text)
+                global_settings["accelerated_move_delay_vertical"] = int(
+                    input_boxes[3].text)
+                global_settings["acceleration_threshold"] = int(
+                    input_boxes[4].text)
                 return None  # Возврат в главное меню
 
         # Обработка событий
@@ -83,11 +103,16 @@ def show_settings_menu(screen):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if back_button_rect.collidepoint(event.pos):
                     # Обновляем глобальные настройки новыми значениями
-                    global_settings["initial_move_delay_horizontal"] = int(input_boxes[0].text)
-                    global_settings["accelerated_move_delay_horizontal"] = int(input_boxes[1].text)
-                    global_settings["initial_move_delay_vertical"] = int(input_boxes[2].text)
-                    global_settings["accelerated_move_delay_vertical"] = int(input_boxes[3].text)
-                    global_settings["acceleration_threshold"] = int(input_boxes[4].text)
+                    global_settings["initial_move_delay_horizontal"] = int(
+                        input_boxes[0].text)
+                    global_settings["accelerated_move_delay_horizontal"] = int(
+                        input_boxes[1].text)
+                    global_settings["initial_move_delay_vertical"] = int(
+                        input_boxes[2].text)
+                    global_settings["accelerated_move_delay_vertical"] = int(
+                        input_boxes[3].text)
+                    global_settings["acceleration_threshold"] = int(
+                        input_boxes[4].text)
 
                     return None  # Возврат в главное меню
 
@@ -97,13 +122,25 @@ def show_settings_menu(screen):
 
         pygame.display.flip()
 
+
 def show_battle_connection_menu(screen):
     # Создаем InputBox для IP-адреса и порта
-    ip_input = InputBox(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 - 50, 200, 40, allowed_chars="0123456789.")
-    port_input = InputBox(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 50, 200, 40, allowed_chars="0123456789")
+    ip_input = InputBox(
+        SCREEN_WIDTH // 2 - 100,
+        SCREEN_HEIGHT // 2 - 50,
+        200,
+        40,
+        allowed_chars="0123456789.")
+    port_input = InputBox(
+        SCREEN_WIDTH // 2 - 100,
+        SCREEN_HEIGHT // 2 + 50,
+        200,
+        40,
+        allowed_chars="0123456789")
 
     # Кнопка "Подключиться"
-    connect_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 150, 200, 40)
+    connect_button_rect = pygame.Rect(
+        SCREEN_WIDTH // 2 - 100, SCREEN_HEIGHT // 2 + 150, 200, 40)
 
     while True:
         screen.fill(BLACK)
@@ -111,13 +148,27 @@ def show_battle_connection_menu(screen):
 
         # Заголовок
         title_text = font.render("Подключение к серверу", True, WHITE)
-        screen.blit(title_text, (SCREEN_WIDTH // 2 - title_text.get_width() // 2, SCREEN_HEIGHT // 2 - 150))
+        screen.blit(
+            title_text,
+            (SCREEN_WIDTH //
+             2 -
+             title_text.get_width() //
+             2,
+             SCREEN_HEIGHT //
+             2 -
+             150))
 
         # Подписи для InputBox
         ip_label = font.render("IP-адрес:", True, WHITE)
         port_label = font.render("Порт:", True, WHITE)
-        screen.blit(ip_label, (SCREEN_WIDTH // 2 - 250, SCREEN_HEIGHT // 2 - 50))
-        screen.blit(port_label, (SCREEN_WIDTH // 2 - 250, SCREEN_HEIGHT // 2 + 50))
+        screen.blit(
+            ip_label,
+            (SCREEN_WIDTH // 2 - 250,
+             SCREEN_HEIGHT // 2 - 50))
+        screen.blit(
+            port_label,
+            (SCREEN_WIDTH // 2 - 250,
+             SCREEN_HEIGHT // 2 + 50))
 
         # Рисуем InputBox
         ip_input.draw(screen)
@@ -126,7 +177,10 @@ def show_battle_connection_menu(screen):
         # Кнопка "Подключиться"
         pygame.draw.rect(screen, GRAY, connect_button_rect)
         connect_text = font.render("Подключиться", True, WHITE)
-        screen.blit(connect_text, (connect_button_rect.x + 20, connect_button_rect.y + 10))
+        screen.blit(
+            connect_text,
+            (connect_button_rect.x + 20,
+             connect_button_rect.y + 10))
 
         # Обработка наведения мыши на кнопку "Подключиться"
         mouse_pos = pygame.mouse.get_pos()
@@ -157,52 +211,115 @@ def show_battle_connection_menu(screen):
         pygame.display.flip()
 
 # Главное меню
+
+
 def show_menu(screen):
     while True:
         screen.fill(BLACK)
         font = pygame.font.Font(None, 72)
         title_text = font.render("Тетрис", True, WHITE)
-        battle_text = font.render("Сражение", True, WHITE)  # Новая кнопка "Сражение"
-        single_player_text = font.render("Одиночная игра", True, WHITE)  # Переименованная кнопка
+        battle_text = font.render(
+            "Сражение", True, WHITE)  # Новая кнопка "Сражение"
+        single_player_text = font.render(
+            "Одиночная игра", True, WHITE)  # Переименованная кнопка
         settings_text = font.render("Настройки", True, WHITE)
 
         # Отображение текста на экране
-        screen.blit(title_text, (SCREEN_WIDTH // 2 - title_text.get_width() // 2, SCREEN_HEIGHT // 2 - 200))
-        screen.blit(battle_text,
-                    (SCREEN_WIDTH // 2 - battle_text.get_width() // 2, SCREEN_HEIGHT // 2 - 100))  # Новая кнопка
-        screen.blit(single_player_text, (
-        SCREEN_WIDTH // 2 - single_player_text.get_width() // 2, SCREEN_HEIGHT // 2))  # Переименованная кнопка
-        screen.blit(settings_text, (SCREEN_WIDTH // 2 - settings_text.get_width() // 2, SCREEN_HEIGHT // 2 + 100))
+        screen.blit(
+            title_text,
+            (SCREEN_WIDTH //
+             2 -
+             title_text.get_width() //
+             2,
+             SCREEN_HEIGHT //
+             2 -
+             200))
+        screen.blit(
+            battle_text,
+            (SCREEN_WIDTH //
+             2 -
+             battle_text.get_width() //
+             2,
+             SCREEN_HEIGHT //
+             2 -
+             100))  # Новая кнопка
+        screen.blit(
+            single_player_text,
+            (SCREEN_WIDTH //
+             2 -
+             single_player_text.get_width() //
+             2,
+             SCREEN_HEIGHT //
+             2))  # Переименованная кнопка
+        screen.blit(
+            settings_text,
+            (SCREEN_WIDTH //
+             2 -
+             settings_text.get_width() //
+             2,
+             SCREEN_HEIGHT //
+             2 +
+             100))
 
         mouse_pos = pygame.mouse.get_pos()
         mouse_clicked = pygame.mouse.get_pressed()[0]
 
         # Определяем прямоугольники кнопок
-        battle_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - battle_text.get_width() // 2, SCREEN_HEIGHT // 2 - 100,
-                                         battle_text.get_width(), battle_text.get_height())
-        single_player_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - single_player_text.get_width() // 2,
-                                                SCREEN_HEIGHT // 2,
-                                                single_player_text.get_width(), single_player_text.get_height())
-        settings_button_rect = pygame.Rect(SCREEN_WIDTH // 2 - settings_text.get_width() // 2, SCREEN_HEIGHT // 2 + 100,
-                                           settings_text.get_width(), settings_text.get_height())
+        battle_button_rect = pygame.Rect(
+            SCREEN_WIDTH // 2 - battle_text.get_width() // 2,
+            SCREEN_HEIGHT // 2 - 100,
+            battle_text.get_width(),
+            battle_text.get_height())
+        single_player_button_rect = pygame.Rect(
+            SCREEN_WIDTH // 2 - single_player_text.get_width() // 2,
+            SCREEN_HEIGHT // 2,
+            single_player_text.get_width(),
+            single_player_text.get_height())
+        settings_button_rect = pygame.Rect(
+            SCREEN_WIDTH // 2 - settings_text.get_width() // 2,
+            SCREEN_HEIGHT // 2 + 100,
+            settings_text.get_width(),
+            settings_text.get_height())
 
         # Подсветка кнопок при наведении
         if battle_button_rect.collidepoint(mouse_pos):
             battle_text = font.render("Сражение", True, GRAY)
-            screen.blit(battle_text, (SCREEN_WIDTH // 2 - battle_text.get_width() // 2, SCREEN_HEIGHT // 2 - 100))
+            screen.blit(
+                battle_text,
+                (SCREEN_WIDTH //
+                 2 -
+                 battle_text.get_width() //
+                 2,
+                 SCREEN_HEIGHT //
+                 2 -
+                 100))
             if mouse_clicked:
                 return "battle"  # Возвращаем "battle" для запуска режима сражения
 
         if single_player_button_rect.collidepoint(mouse_pos):
             single_player_text = font.render("Одиночная игра", True, GRAY)
-            screen.blit(single_player_text,
-                        (SCREEN_WIDTH // 2 - single_player_text.get_width() // 2, SCREEN_HEIGHT // 2))
+            screen.blit(
+                single_player_text,
+                (SCREEN_WIDTH //
+                 2 -
+                 single_player_text.get_width() //
+                 2,
+                 SCREEN_HEIGHT //
+                 2))
             if mouse_clicked:
                 return "single_player"  # Начать одиночную игру
 
         if settings_button_rect.collidepoint(mouse_pos):
             settings_text = font.render("Настройки", True, GRAY)
-            screen.blit(settings_text, (SCREEN_WIDTH // 2 - settings_text.get_width() // 2, SCREEN_HEIGHT // 2 + 100))
+            screen.blit(
+                settings_text,
+                (SCREEN_WIDTH //
+                 2 -
+                 settings_text.get_width() //
+                 2,
+                 SCREEN_HEIGHT //
+                 2 +
+                 100))
             if mouse_clicked:
                 return "settings"  # Перейти в меню настроек
 

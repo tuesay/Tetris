@@ -1,8 +1,9 @@
-#input_box.py
+# input_box.py
 
 import pygame
 
 from game.constants import *
+
 
 class InputBox:
     def __init__(self, x, y, w, h, text='', allowed_chars=None):
@@ -24,7 +25,8 @@ class InputBox:
         if event.type == pygame.KEYDOWN:
             if self.active:
                 if event.key == pygame.K_RETURN:
-                    print(self.text)  # Для отладки, можно обработать ввод здесь
+                    # Для отладки, можно обработать ввод здесь
+                    print(self.text)
                     self.text = ''
                 elif event.key == pygame.K_BACKSPACE:
                     self.text = self.text[:-1]
@@ -32,7 +34,8 @@ class InputBox:
                     # Проверяем, разрешен ли символ
                     if self.allowed_chars is None or event.unicode in self.allowed_chars:
                         self.text += event.unicode
-                self.txt_surface = self.font.render(self.text, True, self.color)
+                self.txt_surface = self.font.render(
+                    self.text, True, self.color)
 
     def update(self):
         width = max(200, self.txt_surface.get_width() + 10)
