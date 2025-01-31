@@ -18,22 +18,31 @@ class BattleServer:
             self.server_socket.bind((self.host, self.port))
             self.server_socket.listen(2)  # Ожидаем подключения двух клиентов
             print(f"Сервер запущен на {self.host}:{self.port}. Ожидание подключений...")
-            while len(self.clients) < 2:
-                client_socket, client_address = self.server_socket.accept()
-                print(f"Подключен клиент: {client_address}")
-                self.clients.append(client_socket)
-                # Отправляем подтверждение подключения
-                client_socket.send("Подключено к серверу. Ожидаем второго игрока...".encode())
-                # Если подключен только один клиент, отправляем ему сообщение о состоянии
-                if len(self.clients) == 1:
-                    threading.Thread(target=self.notify_waiting, args=(client_socket,)).start()
-                # Запускаем поток для обработки клиента
-                threading.Thread(target=self.handle_client, args=(client_socket,)).start()
-            print("Оба игрока подключены. Начинаем игру!")
-            # Отправляем сообщение обоим клиентам о начале игры
-            time.sleep(1)
+            while True:
+                while len(self.clients) < 2:
 
-            self.broadcast("Игра началась!")
+                    client_socket, client_address = self.server_socket.accept()
+                    print(f"Подключен клиент: {client_address}")
+                    self.clients.append(client_socket)
+
+                    # Отправляем подтверждение подключения
+
+                    client_socket.send("Подключено к серверу. Ожидаем второго игрока...".encode())
+
+                    # Если подключен только один клиент, отправляем ему сообщение о состоянии
+                    if len(self.clients) == 1:
+                        threading.Thread(target=self.notify_waiting, args=(client_socket,)).start()
+
+
+                print("Оба игрока подключены. Начинаем игру!")
+                # Отправляем сообщение обоим клиентам о начале игры
+                time.sleep(1)
+
+                self.broadcast("Игра началась!")
+
+                for client_socket in self.clients:
+                    threading.Thread(target=self.handle_client, args=(client_socket,)).start()
+
         except Exception as e:
             print(f"Ошибка при запуске сервера: {e}")
         finally:
@@ -52,11 +61,13 @@ class BattleServer:
         """Обработка данных от клиента."""
         try:
             while True:
+
                 data = client_socket.recv(1024).decode()
                 if not data:
                     break
-                # Обрабатываем полученные данные (например, игровое состояние или атаку)
+                print(data)
                 self.broadcast(data, client_socket)
+
         except Exception as e:
             print(f"Ошибка при обработке клиента: {e}")
         finally:

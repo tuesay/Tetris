@@ -31,8 +31,8 @@ class Grid:
                         return False
         return True
 
-    def draw(self, screen):
+    def draw(self, screen, x_offset=0):
         for y, row in enumerate(self.grid):
             for x, cell in enumerate(row):
-                pygame.draw.rect(screen, cell, (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE), 0)
-                pygame.draw.rect(screen, GRAY, (x * GRID_SIZE, y * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)
+                pygame.draw.rect(screen, cell, (x * GRID_SIZE + x_offset, y * GRID_SIZE, GRID_SIZE, GRID_SIZE), 0)
+                pygame.draw.rect(screen, GRAY, (x * GRID_SIZE + x_offset, y * GRID_SIZE, GRID_SIZE, GRID_SIZE), 1)

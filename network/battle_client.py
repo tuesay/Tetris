@@ -6,6 +6,7 @@ import pygame
 
 from game.settings import *
 from game.constants import *
+from game.grid import Grid
 from game.tetris_game import TetrisGame
 
 from ui.error_handler import show_error_message
@@ -62,7 +63,9 @@ class BattleClient:
                 elif data == 'Игра началась!':
                     self.game_started = True
                     self.waiting_for_second_player = False
-                # Здесь можно обрабатывать полученные данные (например, обновлять игровое состояние)
+                else:
+                    pass
+
             except socket.timeout:
                 print("Таймаут получения данных. Проверьте соединение.")
                 self.disconnect()
@@ -91,8 +94,8 @@ class BattleClient:
 # Класс игры сражения
 class BattleTetrisGame:
     def __init__(self, server_ip, server_port):
-        self.server_ip = server_ip
-        self.server_port = server_port
+        self.server_ip = '127.0.0.1'
+        self.server_port = '5555'
         self.client = BattleClient(server_ip, server_port)
         self.client.connect()
         self.game = TetrisGame(
@@ -102,6 +105,8 @@ class BattleTetrisGame:
             accelerated_move_delay_vertical=global_settings["accelerated_move_delay_vertical"],
             acceleration_threshold=global_settings["acceleration_threshold"]
         )
+        # op - Opponent
+        self.op_grid = Grid(GRID_WIDTH, GRID_HEIGHT)
 
 
     def main_loop(self, screen):
@@ -113,7 +118,7 @@ class BattleTetrisGame:
 
         while self.client.connected:  # Проверяем состояние подключения
 
-            # Здесь будет логика игры
+            # Логика сражения
 
             if self.client.waiting_for_second_player:
                 result = self.show_waiting_for_second_player(screen)
@@ -138,17 +143,43 @@ class BattleTetrisGame:
             result = self.game.handle_events()
             if result is not None:
                 return result
+
+            # CLIENT GAME
             self.game.handle_key_presses()
             self.game.update_falling_shape()
             self.game.grid.draw(screen)
             self.game.draw_shadow(screen)
             self.game.current_shape.draw(screen, self.game.current_x, self.game.current_y)
             self.game.draw_info_window(screen)
+
+            # UPDATING THE OP GAME STATE
+
+            # OP GAME
+            self.op_grid.draw(screen, 600)
+
+            # SENDING THE GAME STATE
+            game_state = self.get_game_state()
+            self.client.send_data(game_state)
+
+
             pygame.display.flip()
             clock.tick(60)
         # После проигрыша показываем экран Game Over
+
         result = self.game.show_game_over_screen(screen)
         return result  # Возвращаем результат в run_game
+
+    def get_game_state(self):
+        import json
+
+        game_state = {
+            "grid": self.game.grid.grid
+        }
+
+        return json.dumps(game_state)
+
+    def update_game_state(self):
+        pass
 
     def show_waiting_for_second_player(self, screen):
         """Отображение сообщения о том, что ожидается второй игрок."""

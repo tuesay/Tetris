@@ -140,7 +140,7 @@ def show_battle_connection_menu(screen):
                     return ip_input.text, int(port_input.text)
                 except ValueError:
                     print('UnexpectedError: Порт пуст/порт состоит из букв ')
-                    return None, None
+                    return '127.0.0.1', 5555
 
         # Обработка событий
         for event in pygame.event.get():
