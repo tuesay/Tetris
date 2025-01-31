@@ -9,8 +9,8 @@ from .settings import global_settings
 from .constants import *
 
 class TetrisGame:
-    def __init__(self, initial_move_delay_horizontal=100, accelerated_move_delay_horizontal=10,
-                 initial_move_delay_vertical=150, accelerated_move_delay_vertical=50, acceleration_threshold=50):
+    def __init__(self, initial_move_delay_horizontal=global_settings["initial_move_delay_horizontal"], accelerated_move_delay_horizontal=global_settings["accelerated_move_delay_horizontal"],
+                 initial_move_delay_vertical=global_settings["initial_move_delay_vertical"], accelerated_move_delay_vertical=global_settings["accelerated_move_delay_vertical"], acceleration_threshold=global_settings["acceleration_threshold"]):
         self.clock = pygame.time.Clock()
         self.grid = Grid(GRID_WIDTH, GRID_HEIGHT)
         self.bag = self.generate_bag()
@@ -118,7 +118,7 @@ class TetrisGame:
         self.fall_time += time_passed
 
     def place_current_shape(self):
-        self.grid.place_shape(self.current_shape.shape, self.current_x, self.current_y, self.current_shape.color)
+        self.grid.place_shape(self.current_shape.shape, self.current_x, self.current_y)
 
     def clear_lines(self):
         lines_cleared = self.grid.clear_lines()
@@ -149,11 +149,11 @@ class TetrisGame:
                 self.game_over = True
             self.fall_time = 0
 
-    def draw_shadow(self, screen):
+    def draw_shadow(self, screen, x_offset=0):
         shadow_y = self.current_y
         while self.grid.valid_move(self.current_shape.shape, self.current_x, shadow_y + 1):
             shadow_y += 1
-        self.current_shape.draw(screen, self.current_x, shadow_y, alpha=128)
+        self.current_shape.draw(screen, self.current_x + x_offset // GRID_SIZE, shadow_y, alpha=128)
 
     def draw_held_info(self, screen):
         # Позиция для отрисовки удержанной фигуры
@@ -195,8 +195,8 @@ class TetrisGame:
                         pygame.draw.rect(screen, shape.color, (block_x, block_y, GRID_SIZE, GRID_SIZE))
                         pygame.draw.rect(screen, GRAY, (block_x, block_y, GRID_SIZE, GRID_SIZE), 1)
 
-    def draw_info_window(self, screen):
-        info_surface = pygame.Surface((SCREEN_WIDTH - GRID_WIDTH * GRID_SIZE, SCREEN_HEIGHT))
+    def draw_info_window(self, screen, x_offset=0):
+        info_surface = pygame.Surface((SCREEN_WIDTH - GRID_WIDTH * GRID_SIZE + x_offset, SCREEN_HEIGHT))
         info_surface.fill(BLACK)
         font = pygame.font.Font(None, 36)
         held_text = font.render("Удержано", True, WHITE)
@@ -209,7 +209,8 @@ class TetrisGame:
         info_surface.blit(level_text, (10, 350))
         self.draw_held_info(info_surface)
         self.draw_next_shapes(info_surface)
-        screen.blit(info_surface, (GRID_WIDTH * GRID_SIZE, 0))
+        screen.blit(info_surface, (GRID_WIDTH * GRID_SIZE + x_offset, 0))
+
 
     def main_loop(self, screen):
         while not self.game_over:

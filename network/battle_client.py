@@ -2,7 +2,9 @@
 
 import socket
 import threading
+
 import pygame
+import pickle
 
 from game.settings import *
 from game.constants import *
@@ -52,19 +54,34 @@ class BattleClient:
         """Получение данных от сервера."""
         while self.connected:
             try:
-                data = self.client_socket.recv(1024).decode()
-                if not data:
+                length_prefix = self.client_socket.recv(10)
+                if not length_prefix:
                     print("Сервер отключился.")
                     self.disconnect()
                     break
-                print(f"Получено от сервера: {data}")
+
+
+                data_length = int(length_prefix.decode('utf-8'))
+
+                received_data = b""
+                while len(received_data) < data_length:
+                    chunk = self.client_socket.recv(data_length - len(received_data))
+                    if not chunk:
+                        break
+                    received_data += chunk
+
+                if len(received_data) != data_length:
+                    raise ValueError("Incomplete data received")
+
+                data = pickle.loads(received_data)
+
                 # Обрабатываем сообщение о том, что ожидается второй игрок
                 if data == "Ожидаем второго игрока...":
                     self.waiting_for_second_player = True
                 elif data == 'Игра началась!':
                     self.game_started = True
                     self.waiting_for_second_player = False
-                else:
+                elif type(data) == type(dict()):
                     self.data = data
 
             except socket.timeout:
@@ -80,8 +97,11 @@ class BattleClient:
         """Отправка данных на сервер."""
         if self.connected:
             try:
-                threading.Event().wait(1)
-                self.client_socket.send(data.encode())
+                serialized_data = pickle.dumps(data)
+                data_length = len(serialized_data)
+                length_prefix = f"{data_length:010}".encode('utf-8')
+                self.client_socket.send(length_prefix + serialized_data)
+
             except Exception as e:
                 print(f"Ошибка отправки данных: {e}")
                 self.disconnect()
@@ -96,8 +116,8 @@ class BattleClient:
 # Класс игры сражения
 class BattleTetrisGame:
     def __init__(self, server_ip, server_port):
-        self.server_ip = '127.0.0.1'
-        self.server_port = '5555'
+        self.server_ip = server_ip
+        self.server_port = server_port
         self.client = BattleClient(server_ip, server_port)
         self.client.connect()
         self.game = TetrisGame(
@@ -109,6 +129,8 @@ class BattleTetrisGame:
         )
         # op - Opponent
         self.op_grid = Grid(GRID_WIDTH, GRID_HEIGHT)
+        self.op_game = TetrisGame()
+        self.op_x_offset = 650
 
 
     def main_loop(self, screen):
@@ -140,11 +162,18 @@ class BattleTetrisGame:
     def game_loop(self, screen):
         """Основной игровой цикл после начала игры."""
         clock = pygame.time.Clock()
+
         while not self.game.game_over:
             screen.fill(BLACK)
             result = self.game.handle_events()
             if result is not None:
                 return result
+
+            # UPDATING THE OP GAME STATE
+
+            received_data = self.client.data
+            if received_data is not None:
+                self.update_game_state(received_data)
 
             # CLIENT GAME
             self.game.handle_key_presses()
@@ -154,37 +183,41 @@ class BattleTetrisGame:
             self.game.current_shape.draw(screen, self.game.current_x, self.game.current_y)
             self.game.draw_info_window(screen)
 
-            # UPDATING THE OP GAME STATE
-            received_data = self.client.data
-            if received_data is not None:
-                self.update_game_state(received_data)
-
             # OP GAME
-            self.op_grid.draw(screen, 650)
+
+            self.op_game.grid.draw(screen, x_offset=self.op_x_offset)
+            self.op_game.current_shape.draw(screen, self.op_game.current_x, self.game.current_y, x_offset=self.op_x_offset)
+            self.op_game.draw_info_window(screen, x_offset=self.op_x_offset)
 
             # SENDING THE GAME STATE
             game_state = self.get_game_state()
             self.client.send_data(game_state)
 
-
             pygame.display.flip()
-            clock.tick(60)
+            clock.tick(120)
         # После проигрыша показываем экран Game Over
 
         result = self.game.show_game_over_screen(screen)
         return result  # Возвращаем результат в run_game
 
     def get_game_state(self):
-        import json
 
         game_state = {
-            "grid": self.game.grid.grid
+            "grid": self.game.grid.grid,
+            "score": self.game.score,
+            "level": self.game.level,
+            "next_shapes": self.game.next_shapes,
+            "held_shape": self.game.held_shape
         }
 
-        return json.dumps(game_state)
+        return game_state
 
     def update_game_state(self, received):
-        self.op_grid.grid = received["grid"]
+        self.op_game.grid.grid = received["grid"]
+        self.op_game.score = received["score"]
+        self.op_game.level = received["level"]
+        self.op_game.next_shapes = received["next_shapes"]
+        self.op_game.held_shape = received["held_shape"]
 
     def show_waiting_for_second_player(self, screen):
         """Отображение сообщения о том, что ожидается второй игрок."""
