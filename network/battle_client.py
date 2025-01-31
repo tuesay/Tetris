@@ -16,6 +16,7 @@ class BattleClient:
     def __init__(self, server_ip, server_port):
         self.server_ip = server_ip
         self.server_port = server_port
+        self.data = None
         self.client_socket = None
         self.connected = False
         self.receive_thread = None
@@ -64,7 +65,7 @@ class BattleClient:
                     self.game_started = True
                     self.waiting_for_second_player = False
                 else:
-                    pass
+                    self.data = data
 
             except socket.timeout:
                 print("Таймаут получения данных. Проверьте соединение.")
@@ -79,6 +80,7 @@ class BattleClient:
         """Отправка данных на сервер."""
         if self.connected:
             try:
+                threading.Event().wait(1)
                 self.client_socket.send(data.encode())
             except Exception as e:
                 print(f"Ошибка отправки данных: {e}")
@@ -153,9 +155,12 @@ class BattleTetrisGame:
             self.game.draw_info_window(screen)
 
             # UPDATING THE OP GAME STATE
+            received_data = self.client.data
+            if received_data is not None:
+                self.update_game_state(received_data)
 
             # OP GAME
-            self.op_grid.draw(screen, 600)
+            self.op_grid.draw(screen, 650)
 
             # SENDING THE GAME STATE
             game_state = self.get_game_state()
@@ -178,8 +183,8 @@ class BattleTetrisGame:
 
         return json.dumps(game_state)
 
-    def update_game_state(self):
-        pass
+    def update_game_state(self, received):
+        self.op_grid.grid = received["grid"]
 
     def show_waiting_for_second_player(self, screen):
         """Отображение сообщения о том, что ожидается второй игрок."""
